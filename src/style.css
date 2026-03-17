@@ -1,0 +1,113 @@
+:root {
+  --bg: #f4f1ea;
+  --card: #fffdf8;
+  --text: #1f2937;
+  --accent: #c2410c;
+  --muted: #6b7280;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top right, #fde68a, var(--bg));
+  color: var(--text);
+}
+
+.container {
+  max-width: 640px;
+  margin: 10vh auto;
+  padding: 2rem;
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(31, 41, 55, 0.12);
+}
+
+h1 {
+  margin-top: 0;
+}
+
+h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1.1rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.clock {
+  color: var(--muted);
+}
+
+.card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+button {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+button.secondary {
+  background: #334155;
+}
+
+input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+
+#taskList {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+body.dark {
+  --bg: #0f172a;
+  --card: #111827;
+  --text: #e5e7eb;
+  --accent: #ea580c;
+  --muted: #9ca3af;
+}
+
+body.dark .card {
+  border-color: #374151;
+}
+
+body.dark .task-item {
+  background: #1f2937;
+}
