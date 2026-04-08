@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>影片配樂預覽 - 外賣帥哥出發</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        body {
+            background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%);
+            min-height: 100vh;
+        }
+        .subtitle-drop-top {
+            box-shadow: inset 0 3px 0 0 rgba(245, 158, 11, 0.95);
+        }
+        .subtitle-drop-bottom {
+            box-shadow: inset 0 -3px 0 0 rgba(245, 158, 11, 0.95);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 font-sans text-gray-800">
+
+    <div class="max-w-md w-full glass-morphism rounded-3xl overflow-hidden shadow-2xl p-6 mb-8 border-t-4 border-yellow-500">
+        <h1 class="text-2xl font-black text-center mb-4 text-yellow-900 tracking-tight">🛵 全城最帥外賣員</h1>
+        
+        <!-- 影片容器 -->
+        <div class="relative aspect-[9/16] bg-black rounded-2xl overflow-hidden shadow-inner mb-6">
+            <video id="mainVideo" class="w-full h-full object-contain" loop>
+                <source src="videos/IMG_7591.mov" type="video/quicktime">
+                <source src="videos/IMG_7591.mov" type="video/mp4">
+                你的瀏覽器不支援影片播放。
+            </video>
+            
+            <!-- 播放按鈕圖示 -->
+            <div id="playOverlay" class="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer transition-opacity duration-300">
+                <svg class="w-20 h-20 text-white fill-current" viewBox="0 0 20 20">
+                    <path d="M6 4l10 6-10 6V4z"></path>
+                </svg>
+            </div>
+
+            <!-- 外賣中 標籤 -->
+            <div class="absolute top-4 right-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+                DELIVERING...
+            </div>
+
+            <div id="subtitleOverlay" class="absolute left-3 right-3 bottom-4 text-center text-white font-bold text-sm md:text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] opacity-0 transition-opacity duration-200"></div>
+        </div>
+
+        <!-- 隱藏的音訊元件 (選用輕快節奏感強的音樂) -->
+        <audio id="bgMusic" loop>
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" type="audio/mpeg">
+        </audio>
+
+        <!-- 控制區 -->
+        <div class="space-y-4">
+            <button id="toggleBtn" class="w-full py-4 bg-yellow-500 hover:bg-yellow-600 text-white font-black rounded-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                <span>出發！(播放影片 & 音樂)</span>
+            </button>
+
+            <button id="pickMusicBtn" class="w-full py-3 bg-white hover:bg-yellow-50 text-yellow-900 font-bold rounded-xl transition-all active:scale-95 shadow border border-yellow-300">
+                揀音樂檔 (MP3/M4A/WAV)
+            </button>
+
+            <button id="pickVideoBtn" class="w-full py-3 bg-white hover:bg-yellow-50 text-yellow-900 font-bold rounded-xl transition-all active:scale-95 shadow border border-yellow-300">
+                揀影片檔 (MP4/MOV/WEBM)
+            </button>
+
+            <button id="exportBtn" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all active:scale-95 shadow">
+                匯出已加音樂影片
+            </button>
+
+            <label class="block text-xs text-slate-700">
+                匯出格式
+                <select id="exportFormatSelect" class="mt-1 w-full px-2 py-2 rounded border border-slate-300 text-sm bg-white">
+                    <option value="webm" selected>WebM (.webm)</option>
+                    <option value="mp4">MP4 (.mp4，瀏覽器支援先可用)</option>
+                </select>
+            </label>
+
+            <div id="exportProgressWrap" class="hidden p-3 bg-white/80 rounded-xl border border-red-200">
+                <div class="flex items-center justify-between text-xs text-slate-700 mb-1">
+                    <span id="exportProgressLabel">準備中...</span>
+                    <span id="exportProgressPercent">0%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div id="exportProgressBar" class="h-full bg-red-500 transition-all duration-150" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <button id="captionBtn" class="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-all active:scale-95 shadow">
+                啟動自動字幕 (Beta)
+            </button>
+
+            <input id="musicFileInput" type="file" accept="audio/*" class="hidden">
+            <input id="videoFileInput" type="file" accept="video/*" class="hidden">
+            <input id="srtFileInput" type="file" accept=".srt,text/plain" class="hidden">
+            <p id="statusText" class="text-xs text-gray-600 text-center">
+                提示：先揀音樂，再按「匯出已加音樂影片」。
+            </p>
+
+            <div class="p-3 bg-white/70 rounded-xl border border-slate-200 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-bold text-slate-800">字幕微調</p>
+                    <div class="flex gap-2">
+                        <button id="addSubtitleAtCurrentBtn" class="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-lg">+ 目前時間加一句</button>
+                        <button id="clearSubtitlesBtn" class="px-3 py-1.5 text-xs bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg border border-slate-300">清空字幕</button>
+                    </div>
+                </div>
+                <div id="subtitleList" class="max-h-44 overflow-y-auto space-y-2"></div>
+                <p class="text-[11px] text-slate-600">可改每句字幕的開始/結束秒數同文字，匯出時會直接套用。</p>
+
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button id="exportSrtBtn" class="px-3 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg">匯出 SRT</button>
+                    <button id="importSrtBtn" class="px-3 py-2 text-xs bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg border border-slate-300">匯入 SRT</button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <input id="shiftSecondsInput" type="number" step="0.1" min="0.1" value="0.5" class="px-2 py-1 rounded border border-slate-300 text-xs" placeholder="秒數">
+                    <button id="shiftBackwardBtn" class="px-3 py-2 text-xs bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg border border-slate-300">整段前移</button>
+                    <button id="shiftForwardBtn" class="px-3 py-2 text-xs bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg border border-slate-300">整段後移</button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <input id="durationDeltaInput" type="number" step="0.1" min="0.1" value="0.3" class="px-2 py-1 rounded border border-slate-300 text-xs" placeholder="秒數">
+                    <button id="durationMinusBtn" class="px-3 py-2 text-xs bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg border border-slate-300">全部時長 -</button>
+                    <button id="durationPlusBtn" class="px-3 py-2 text-xs bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-lg border border-slate-300">全部時長 +</button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <label class="text-[11px] text-slate-600">字幕主題
+                        <select id="subtitleThemeSelect" class="mt-1 w-full px-2 py-1 rounded border border-slate-300 text-xs bg-white">
+                            <option value="white-black">白字黑底</option>
+                            <option value="clean">簡潔白字</option>
+                        </select>
+                    </label>
+                    <label class="text-[11px] text-slate-600">字幕模式
+                        <select id="subtitleModeSelect" class="mt-1 w-full px-2 py-1 rounded border border-slate-300 text-xs bg-white">
+                            <option value="single">單行</option>
+                            <option value="bilingual">雙語</option>
+                        </select>
+                    </label>
+                    <label class="text-[11px] text-slate-600">字體大小
+                        <select id="subtitleSizeSelect" class="mt-1 w-full px-2 py-1 rounded border border-slate-300 text-xs bg-white">
+                            <option value="0.85">細</option>
+                            <option value="1" selected>中</option>
+                            <option value="1.2">大</option>
+                        </select>
+                    </label>
+                </div>
+                <p class="text-[11px] text-slate-500">雙語模式可用「|」分隔上下行，例如：你好嗎 | How are you</p>
+                <p class="text-[11px] text-slate-500">字幕清單可直接拖曳排序（拖動左側手柄）。</p>
+            </div>
+
+            <div class="p-4 bg-white/60 rounded-xl border border-yellow-200">
+                <p class="text-sm font-bold text-gray-800 mb-1">自訂 Description：</p>
+                <textarea id="descriptionInput" rows="3" class="w-full p-2 text-sm rounded-lg border border-yellow-200 bg-white/90 mb-2" placeholder="例如：今次條片係外賣員穿梭街頭，節奏輕快，想帶出努力同生活感。"></textarea>
+                <button id="generatePostBtn" class="w-full py-2 mb-3 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-bold rounded-lg">AI 生成短簡介</button>
+                <p class="text-sm font-bold text-gray-800 mb-1">Facebook 貼文預覽：</p>
+                <p id="postPreviewText" class="text-sm text-gray-700 leading-relaxed">
+                    「全城最帥外賣員正式上線！🛵 音樂起，油門落，今日嘅目標係：喺你個餐凍之前，用我嘅帥氣溫暖你。😏 雖然我揸得慢，但我型呀嘛！」
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('mainVideo');
+        const audio = document.getElementById('bgMusic');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const playOverlay = document.getElementById('playOverlay');
+        const btnText = toggleBtn.querySelector('span');
+        const pickMusicBtn = document.getElementById('pickMusicBtn');
+        const pickVideoBtn = document.getElementById('pickVideoBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const exportFormatSelect = document.getElementById('exportFormatSelect');
+        const captionBtn = document.getElementById('captionBtn');
+        const exportProgressWrap = document.getElementById('exportProgressWrap');
+        const exportProgressLabel = document.getElementById('exportProgressLabel');
+        const exportProgressPercent = document.getElementById('exportProgressPercent');
+        const exportProgressBar = document.getElementById('exportProgressBar');
+        const musicFileInput = document.getElementById('musicFileInput');
+        const videoFileInput = document.getElementById('videoFileInput');
+        const srtFileInput = document.getElementById('srtFileInput');
+        const statusText = document.getElementById('statusText');
+        const subtitleOverlay = document.getElementById('subtitleOverlay');
+        const subtitleList = document.getElementById('subtitleList');
+        const addSubtitleAtCurrentBtn = document.getElementById('addSubtitleAtCurrentBtn');
+        const clearSubtitlesBtn = document.getElementById('clearSubtitlesBtn');
+        const exportSrtBtn = document.getElementById('exportSrtBtn');
+        const importSrtBtn = document.getElementById('importSrtBtn');
+        const shiftSecondsInput = document.getElementById('shiftSecondsInput');
+        const shiftBackwardBtn = document.getElementById('shiftBackwardBtn');
+        const shiftForwardBtn = document.getElementById('shiftForwardBtn');
+        const durationDeltaInput = document.getElementById('durationDeltaInput');
+        const durationMinusBtn = document.getElementById('durationMinusBtn');
+        const durationPlusBtn = document.getElementById('durationPlusBtn');
+        const subtitleThemeSelect = document.getElementById('subtitleThemeSelect');
+        const subtitleModeSelect = document.getElementById('subtitleModeSelect');
+        const subtitleSizeSelect = document.getElementById('subtitleSizeSelect');
+        const descriptionInput = document.getElementById('descriptionInput');
+        const generatePostBtn = document.getElementById('generatePostBtn');
+        const postPreviewText = document.getElementById('postPreviewText');
+
+        let isPlaying = false;
+        let selectedMusicUrl = null;
+        let selectedVideoUrl = null;
+        let hasCustomMusic = false;
+        let isCaptioning = false;
+        let currentSubtitleText = '';
+        let subtitleSegments = [];
+        let recognition = null;
+        let subtitleTheme = 'white-black';
+        let subtitleMode = 'single';
+        let subtitleFontScale = 1;
+        let draggedSubtitleIndex = null;
+        let dragTargetIndex = null;
+        let dragInsertAfter = false;
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        function escapeHtml(raw) {
+            return String(raw)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function splitSubtitleLines(text) {
+            if (!text) {
+                return [];
+            }
+            if (subtitleMode !== 'bilingual') {
+                return [text];
+            }
+
+            if (text.includes('|')) {
+                const parts = text.split('|').map((part) => part.trim()).filter(Boolean);
+                return parts.length > 0 ? parts.slice(0, 2) : [text];
+            }
+
+            if (text.includes('\n')) {
+                const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+                return lines.length > 0 ? lines.slice(0, 2) : [text];
+            }
+
+            return [text];
+        }
+
+        function createShortPostFromDescription(description) {
+            const raw = String(description || '').replace(/\s+/g, ' ').trim();
+            if (!raw) {
+                return '請先輸入 description，再按「AI 生成短簡介」。';
+            }
+
+            const leadPhrases = [
+                '今日呢段短片，想分享一個真實片刻：',
+                '呢條片記錄咗一段好有節奏感嘅日常：',
+                '今次想用短短幾秒，講一個簡單故事：',
+                '一段平凡但有感覺嘅畫面，重點係：'
+            ];
+            const closingPhrases = [
+                '多謝你睇到最後。',
+                '希望你都會有共鳴。',
+                '如果你都鍾意呢種節奏，留言話我知。',
+                '繼續努力，下一條再見。'
+            ];
+
+            const lead = leadPhrases[Math.floor(Math.random() * leadPhrases.length)];
+            const close = closingPhrases[Math.floor(Math.random() * closingPhrases.length)];
+            const shortCore = raw.length > 56 ? `${raw.slice(0, 56)}...` : raw;
+
+            const tags = [];
+            if (/(外賣|送餐|food|delivery)/i.test(raw)) tags.push('#外賣日常');
+            if (/(城市|街頭|city|street)/i.test(raw)) tags.push('#城市節奏');
+            if (/(努力|追夢|加油|work|dream)/i.test(raw)) tags.push('#生活記錄');
+            if (tags.length === 0) tags.push('#短片分享', '#日常記錄');
+
+            return `「${lead} ${shortCore} ${close}」\n${tags.join(' ')}`;
+        }
+
+        function updateSubtitleOverlayStyle() {
+            subtitleOverlay.classList.remove('bg-black/60', 'rounded-lg', 'px-3', 'py-2');
+            if (subtitleTheme === 'white-black') {
+                subtitleOverlay.classList.add('bg-black/60', 'rounded-lg', 'px-3', 'py-2');
+            }
+        }
+
+        function setSubtitleOverlay(text) {
+            if (!text) {
+                subtitleOverlay.innerHTML = '';
+                subtitleOverlay.style.opacity = '0';
+                return;
+            }
+
+            const lines = splitSubtitleLines(text);
+            const lineHtml = lines
+                .map((line) => `<div class="leading-snug">${escapeHtml(line)}</div>`)
+                .join('');
+            subtitleOverlay.innerHTML = lineHtml;
+            subtitleOverlay.style.fontSize = `${1 * subtitleFontScale}rem`;
+            subtitleOverlay.style.opacity = '1';
+        }
+
+        function subtitleSegmentForTime(time) {
+            for (let i = subtitleSegments.length - 1; i >= 0; i -= 1) {
+                const segment = subtitleSegments[i];
+                if (time >= segment.start && time <= segment.end) {
+                    return segment;
+                }
+            }
+            return null;
+        }
+
+        function subtitleForTime(time) {
+            const segment = subtitleSegmentForTime(time);
+            return segment ? segment.text : '';
+        }
+
+        function normalizeSubtitleSegments() {
+            subtitleSegments = subtitleSegments
+                .filter((segment) => segment && segment.text)
+                .map((segment) => {
+                    const start = Math.max(0, Number(segment.start) || 0);
+                    const rawEnd = Math.max(0, Number(segment.end) || start + 1.5);
+                    const end = Math.max(start + 0.2, rawEnd);
+                    return {
+                        start,
+                        end,
+                        text: String(segment.text).trim()
+                    };
+                })
+                .filter((segment) => segment.text.length > 0);
+        }
+
+        function moveSubtitleSegment(fromIndex, toIndex) {
+            if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+                return;
+            }
+            if (fromIndex >= subtitleSegments.length || toIndex >= subtitleSegments.length) {
+                return;
+            }
+            const [moved] = subtitleSegments.splice(fromIndex, 1);
+            subtitleSegments.splice(toIndex, 0, moved);
+        }
+
+        function shiftAllSubtitleTime(deltaSeconds) {
+            if (subtitleSegments.length === 0) {
+                return;
+            }
+            subtitleSegments = subtitleSegments.map((segment) => {
+                const nextStart = Math.max(0, segment.start + deltaSeconds);
+                const duration = Math.max(0.2, segment.end - segment.start);
+                const nextEnd = Math.max(nextStart + 0.2, nextStart + duration);
+                return {
+                    start: nextStart,
+                    end: nextEnd,
+                    text: segment.text
+                };
+            });
+        }
+
+        function adjustAllSubtitleDuration(deltaSeconds) {
+            if (subtitleSegments.length === 0) {
+                return;
+            }
+            subtitleSegments = subtitleSegments.map((segment) => {
+                const duration = Math.max(0.2, (segment.end - segment.start) + deltaSeconds);
+                return {
+                    start: segment.start,
+                    end: segment.start + duration,
+                    text: segment.text
+                };
+            });
+        }
+
+        function alignSubtitleToCurrentTime(index) {
+            const segment = subtitleSegments[index];
+            if (!segment) {
+                return;
+            }
+            const duration = Math.max(0.2, segment.end - segment.start);
+            const newStart = Math.max(0, video.currentTime);
+            subtitleSegments[index] = {
+                start: newStart,
+                end: newStart + duration,
+                text: segment.text
+            };
+        }
+
+        function renderSubtitleList() {
+            if (subtitleSegments.length === 0) {
+                subtitleList.innerHTML = '<p class="text-xs text-slate-500">暫時未有字幕。可先用自動字幕，或按「目前時間加一句」。</p>';
+                return;
+            }
+
+            subtitleList.innerHTML = '';
+
+            subtitleSegments.forEach((segment, index) => {
+                const row = document.createElement('div');
+                row.className = 'p-2 rounded-lg border border-slate-200 bg-white/90 space-y-2 cursor-move';
+                row.draggable = true;
+                row.dataset.index = String(index);
+                row.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] text-slate-500">≡ 拖曳排序 #${index + 1}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="text-[11px] text-slate-600">開始秒數
+                            <input data-field="start" data-index="${index}" type="number" step="0.1" min="0" value="${segment.start.toFixed(1)}" class="mt-1 w-full px-2 py-1 rounded border border-slate-300 text-xs">
+                        </label>
+                        <label class="text-[11px] text-slate-600">結束秒數
+                            <input data-field="end" data-index="${index}" type="number" step="0.1" min="0" value="${segment.end.toFixed(1)}" class="mt-1 w-full px-2 py-1 rounded border border-slate-300 text-xs">
+                        </label>
+                    </div>
+                    <label class="text-[11px] text-slate-600 block">字幕文字
+                        <input data-field="text" data-index="${index}" type="text" value="${escapeHtml(segment.text)}" class="mt-1 w-full px-2 py-1 rounded border border-slate-300 text-xs">
+                    </label>
+                    <div class="flex justify-end gap-2">
+                        <button data-action="align-current" data-index="${index}" class="px-2 py-1 text-[11px] rounded bg-amber-500 hover:bg-amber-600 text-white">對齊到目前時間</button>
+                        <button data-action="delete" data-index="${index}" class="px-2 py-1 text-[11px] rounded bg-rose-600 hover:bg-rose-700 text-white">刪除</button>
+                    </div>
+                `;
+                subtitleList.appendChild(row);
+
+                row.addEventListener('dragstart', () => {
+                    draggedSubtitleIndex = index;
+                    row.classList.add('opacity-60');
+                });
+
+                row.addEventListener('dragend', () => {
+                    draggedSubtitleIndex = null;
+                    dragTargetIndex = null;
+                    dragInsertAfter = false;
+                    row.classList.remove('opacity-60');
+                });
+
+                row.addEventListener('dragover', (event) => {
+                    event.preventDefault();
+                    const rect = row.getBoundingClientRect();
+                    const offsetY = event.clientY - rect.top;
+                    const shouldInsertAfter = offsetY > rect.height / 2;
+                    const targetIndex = Number(row.dataset.index);
+
+                    subtitleList.querySelectorAll('[draggable="true"]').forEach((item) => {
+                        item.classList.remove('subtitle-drop-top', 'subtitle-drop-bottom');
+                    });
+
+                    row.classList.add(shouldInsertAfter ? 'subtitle-drop-bottom' : 'subtitle-drop-top');
+                    dragTargetIndex = targetIndex;
+                    dragInsertAfter = shouldInsertAfter;
+                });
+
+                row.addEventListener('dragleave', () => {
+                    row.classList.remove('subtitle-drop-top', 'subtitle-drop-bottom');
+                });
+
+                row.addEventListener('drop', (event) => {
+                    event.preventDefault();
+                    subtitleList.querySelectorAll('[draggable="true"]').forEach((item) => {
+                        item.classList.remove('subtitle-drop-top', 'subtitle-drop-bottom');
+                    });
+
+                    let targetIndex = Number(row.dataset.index);
+                    if (draggedSubtitleIndex === null) {
+                        return;
+                    }
+
+                    if (dragTargetIndex !== null) {
+                        targetIndex = dragTargetIndex;
+                    }
+
+                    if (dragInsertAfter) {
+                        targetIndex += 1;
+                        if (draggedSubtitleIndex < targetIndex) {
+                            targetIndex -= 1;
+                        }
+                        targetIndex = Math.min(targetIndex, subtitleSegments.length - 1);
+                    }
+
+                    moveSubtitleSegment(draggedSubtitleIndex, targetIndex);
+                    normalizeSubtitleSegments();
+                    renderSubtitleList();
+                    setSubtitleOverlay(subtitleForTime(video.currentTime));
+                });
+            });
+
+            subtitleList.querySelectorAll('input[data-field]').forEach((input) => {
+                input.addEventListener('change', (event) => {
+                    const target = event.target;
+                    const index = Number(target.dataset.index);
+                    const field = target.dataset.field;
+                    if (!subtitleSegments[index]) {
+                        return;
+                    }
+
+                    if (field === 'text') {
+                        subtitleSegments[index].text = target.value;
+                    } else {
+                        subtitleSegments[index][field] = Number(target.value);
+                    }
+
+                    normalizeSubtitleSegments();
+                    renderSubtitleList();
+                    const liveText = subtitleForTime(video.currentTime);
+                    setSubtitleOverlay(liveText);
+                });
+            });
+
+            subtitleList.querySelectorAll('button[data-action="delete"]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const index = Number(btn.dataset.index);
+                    subtitleSegments.splice(index, 1);
+                    normalizeSubtitleSegments();
+                    renderSubtitleList();
+                    const liveText = subtitleForTime(video.currentTime);
+                    setSubtitleOverlay(liveText);
+                });
+            });
+
+            subtitleList.querySelectorAll('button[data-action="align-current"]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const index = Number(btn.dataset.index);
+                    alignSubtitleToCurrentTime(index);
+                    normalizeSubtitleSegments();
+                    renderSubtitleList();
+                    setSubtitleOverlay(subtitleForTime(video.currentTime));
+                    statusText.textContent = `已對齊第 ${index + 1} 句到目前播放時間。`;
+                });
+            });
+        }
+
+        function drawSubtitleOnCanvas(ctx, canvas, text) {
+            if (!text) {
+                return;
+            }
+
+            const lines = splitSubtitleLines(text);
+            const padding = 14;
+            const maxWidth = canvas.width - 80;
+            const fontSize = Math.max(26, Math.floor(canvas.width * 0.035 * subtitleFontScale));
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+
+            const wrappedLines = [];
+            for (const rawLine of lines) {
+                const words = rawLine.split(' ');
+                let line = '';
+                for (const word of words) {
+                    const candidate = line ? `${line} ${word}` : word;
+                    if (ctx.measureText(candidate).width > maxWidth && line) {
+                        wrappedLines.push(line);
+                        line = word;
+                    } else {
+                        line = candidate;
+                    }
+                }
+                if (line) {
+                    wrappedLines.push(line);
+                }
+            }
+
+            const lineHeight = Math.max(34, Math.floor(canvas.height * 0.04 * subtitleFontScale));
+            const blockHeight = (wrappedLines.length * lineHeight) + (padding * 2);
+            const boxY = canvas.height - blockHeight - 28;
+
+            if (subtitleTheme === 'white-black') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+                ctx.fillRect(30, boxY, canvas.width - 60, blockHeight);
+            }
+
+            ctx.fillStyle = '#ffffff';
+            let y = canvas.height - 28 - padding;
+            for (let i = wrappedLines.length - 1; i >= 0; i -= 1) {
+                ctx.fillText(wrappedLines[i], canvas.width / 2, y);
+                y -= lineHeight;
+            }
+        }
+
+        function toSrtTime(seconds) {
+            const totalMs = Math.max(0, Math.floor(seconds * 1000));
+            const ms = totalMs % 1000;
+            const totalSec = Math.floor(totalMs / 1000);
+            const sec = totalSec % 60;
+            const totalMin = Math.floor(totalSec / 60);
+            const min = totalMin % 60;
+            const hour = Math.floor(totalMin / 60);
+            return `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+        }
+
+        function parseSrtTime(timeCode) {
+            const match = timeCode.match(/(\d{2}):(\d{2}):(\d{2})[,\.](\d{3})/);
+            if (!match) {
+                return null;
+            }
+            const hours = Number(match[1]);
+            const mins = Number(match[2]);
+            const secs = Number(match[3]);
+            const ms = Number(match[4]);
+            return (hours * 3600) + (mins * 60) + secs + (ms / 1000);
+        }
+
+        function parseSrtContent(content) {
+            const blocks = content.replace(/\r/g, '').trim().split('\n\n');
+            const parsed = [];
+
+            for (const block of blocks) {
+                const lines = block.split('\n').map((line) => line.trim());
+                if (lines.length < 2) {
+                    continue;
+                }
+
+                const timingLine = lines[1].includes('-->') ? lines[1] : lines[0];
+                const textStartIndex = timingLine === lines[1] ? 2 : 1;
+                const parts = timingLine.split('-->').map((part) => part.trim());
+                if (parts.length !== 2) {
+                    continue;
+                }
+
+                const start = parseSrtTime(parts[0]);
+                const end = parseSrtTime(parts[1]);
+                const text = lines.slice(textStartIndex).join(' ').trim();
+
+                if (start === null || end === null || !text) {
+                    continue;
+                }
+
+                parsed.push({ start, end, text });
+            }
+
+            return parsed;
+        }
+
+        function bytesHasUtf8Bom(bytes) {
+            return bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+        }
+
+        function bytesHasUtf16LeBom(bytes) {
+            return bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe;
+        }
+
+        function bytesHasUtf16BeBom(bytes) {
+            return bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff;
+        }
+
+        function repairUtf8Mojibake(text) {
+            const suspicious = /Ã|Â|â€|â€™|ðŸ|å|æ/.test(text);
+            if (!suspicious) {
+                return text;
+            }
+
+            try {
+                const bytes = new Uint8Array(Array.from(text, (char) => char.charCodeAt(0) & 0xff));
+                const repaired = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+                return repaired;
+            } catch (error) {
+                return text;
+            }
+        }
+
+        function decodeSrtBytes(arrayBuffer) {
+            const bytes = new Uint8Array(arrayBuffer);
+            let text = '';
+
+            if (bytesHasUtf8Bom(bytes)) {
+                text = new TextDecoder('utf-8').decode(bytes.subarray(3));
+                return repairUtf8Mojibake(text.replace(/^\uFEFF/, ''));
+            }
+
+            if (bytesHasUtf16LeBom(bytes)) {
+                text = new TextDecoder('utf-16le').decode(bytes.subarray(2));
+                return text.replace(/^\uFEFF/, '');
+            }
+
+            if (bytesHasUtf16BeBom(bytes)) {
+                text = new TextDecoder('utf-16be').decode(bytes.subarray(2));
+                return text.replace(/^\uFEFF/, '');
+            }
+
+            try {
+                text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            } catch (error) {
+                try {
+                    text = new TextDecoder('big5', { fatal: false }).decode(bytes);
+                } catch (fallbackError) {
+                    text = new TextDecoder('utf-8').decode(bytes);
+                }
+            }
+
+            return repairUtf8Mojibake(text.replace(/^\uFEFF/, ''));
+        }
+
+        function stopAutoCaption(showText = true) {
+            isCaptioning = false;
+            captionBtn.textContent = '啟動自動字幕 (Beta)';
+            if (recognition) {
+                recognition.onresult = null;
+                recognition.onend = null;
+                recognition.onerror = null;
+                recognition.stop();
+                recognition = null;
+            }
+            video.muted = true;
+            if (showText) {
+                statusText.textContent = '已停止自動字幕。';
+            }
+        }
+
+        function startAutoCaption() {
+            if (!SpeechRecognition) {
+                alert('你的瀏覽器未支援語音辨識。建議使用最新版 Chrome。');
+                return;
+            }
+
+            currentSubtitleText = '';
+            setSubtitleOverlay('');
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'zh-HK';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onresult = (event) => {
+                let interim = '';
+                for (let i = event.resultIndex; i < event.results.length; i += 1) {
+                    const transcript = event.results[i][0].transcript.trim();
+                    if (!transcript) {
+                        continue;
+                    }
+
+                    if (event.results[i].isFinal) {
+                        const start = Math.max(0, video.currentTime - 0.5);
+                        const end = video.currentTime + 2.5;
+                        subtitleSegments.push({ start, end, text: transcript });
+                        normalizeSubtitleSegments();
+                        renderSubtitleList();
+                        currentSubtitleText = transcript;
+                    } else {
+                        interim += `${transcript} `;
+                    }
+                }
+
+                const displayText = interim.trim() || currentSubtitleText;
+                setSubtitleOverlay(displayText);
+            };
+
+            recognition.onend = () => {
+                if (isCaptioning) {
+                    try {
+                        recognition.start();
+                    } catch (error) {
+                        console.error(error);
+                    }
+                }
+            };
+
+            recognition.onerror = () => {
+                statusText.textContent = '字幕辨識遇到問題，請再試一次。';
+            };
+
+            try {
+                recognition.start();
+                isCaptioning = true;
+                captionBtn.textContent = '停止自動字幕';
+                audio.pause();
+                video.muted = false;
+                statusText.textContent = '字幕辨識中：請開聲播放影片，並允許麥克風權限。';
+            } catch (error) {
+                console.error(error);
+                alert('無法啟動自動字幕，請重新整理後再試。');
+            }
+        }
+
+        function togglePlay() {
+            if (!isPlaying) {
+                video.play();
+                audio.play();
+                audio.volume = 0.5;
+                btnText.textContent = "任務執行中 (暫停)";
+                playOverlay.style.opacity = "0";
+                isPlaying = true;
+            } else {
+                video.pause();
+                audio.pause();
+                btnText.textContent = "出發！(播放影片 & 音樂)";
+                playOverlay.style.opacity = "1";
+                isPlaying = false;
+            }
+        }
+
+        pickMusicBtn.addEventListener('click', () => {
+            musicFileInput.click();
+        });
+
+        pickVideoBtn.addEventListener('click', () => {
+            videoFileInput.click();
+        });
+
+        musicFileInput.addEventListener('change', () => {
+            const file = musicFileInput.files && musicFileInput.files[0];
+            if (!file) {
+                return;
+            }
+
+            if (selectedMusicUrl) {
+                URL.revokeObjectURL(selectedMusicUrl);
+            }
+
+            selectedMusicUrl = URL.createObjectURL(file);
+            audio.src = selectedMusicUrl;
+            audio.load();
+            hasCustomMusic = true;
+            statusText.textContent = `已載入音樂：${file.name}`;
+        });
+
+        videoFileInput.addEventListener('change', () => {
+            const file = videoFileInput.files && videoFileInput.files[0];
+            if (!file) {
+                return;
+            }
+
+            if (selectedVideoUrl) {
+                URL.revokeObjectURL(selectedVideoUrl);
+            }
+
+            selectedVideoUrl = URL.createObjectURL(file);
+            video.pause();
+            video.src = selectedVideoUrl;
+            video.load();
+            video.currentTime = 0;
+
+            audio.pause();
+            playOverlay.style.opacity = '1';
+            btnText.textContent = '出發！(播放影片 & 音樂)';
+            isPlaying = false;
+
+            statusText.textContent = `已載入影片：${file.name}`;
+            videoFileInput.value = '';
+        });
+
+        function getSupportedMimeType(format) {
+            const mimeTypes = format === 'mp4'
+                ? [
+                    'video/mp4;codecs=h264,aac',
+                    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+                    'video/mp4'
+                ]
+                : [
+                    'video/webm;codecs=vp9,opus',
+                    'video/webm;codecs=vp8,opus',
+                    'video/webm'
+                ];
+
+            for (const type of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(type)) {
+                    return type;
+                }
+            }
+            return '';
+        }
+
+        function waitForEnded(mediaElement) {
+            return new Promise((resolve) => {
+                mediaElement.addEventListener('ended', resolve, { once: true });
+            });
+        }
+
+        function waitForMediaReady(mediaElement, timeoutMs = 3000) {
+            if (mediaElement.readyState >= 2) {
+                return Promise.resolve(true);
+            }
+
+            return new Promise((resolve) => {
+                const done = (ok) => {
+                    clearTimeout(timer);
+                    mediaElement.removeEventListener('loadeddata', onReady);
+                    mediaElement.removeEventListener('canplay', onReady);
+                    mediaElement.removeEventListener('error', onError);
+                    resolve(ok);
+                };
+
+                const onReady = () => done(true);
+                const onError = () => done(false);
+                const timer = setTimeout(() => done(false), timeoutMs);
+
+                mediaElement.addEventListener('loadeddata', onReady, { once: true });
+                mediaElement.addEventListener('canplay', onReady, { once: true });
+                mediaElement.addEventListener('error', onError, { once: true });
+            });
+        }
+
+        function setExportProgress(percent, label) {
+            const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+            exportProgressWrap.classList.remove('hidden');
+            exportProgressBar.style.width = `${safePercent}%`;
+            exportProgressPercent.textContent = `${safePercent}%`;
+            if (label) {
+                exportProgressLabel.textContent = label;
+            }
+        }
+
+        async function exportVideoWithMusic() {
+            setExportProgress(1, '檢查匯出條件...');
+
+            if (!hasCustomMusic) {
+                setExportProgress(0, '未揀音樂，無法匯出');
+                alert('請先揀一段音樂檔再匯出。');
+                return;
+            }
+
+            if (!window.MediaRecorder) {
+                setExportProgress(0, '此瀏覽器不支援匯出');
+                alert('你的瀏覽器未支援影片匯出功能。');
+                return;
+            }
+
+            const selectedFormat = exportFormatSelect.value || 'webm';
+            const mimeType = getSupportedMimeType(selectedFormat);
+            if (!mimeType) {
+                setExportProgress(0, '找不到可用匯出格式');
+                alert(`目前瀏覽器未支援 ${selectedFormat.toUpperCase()} 匯出，請改用 WebM。`);
+                return;
+            }
+
+            const fileExtension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+
+            const wasLooping = video.loop;
+            const wasMuted = video.muted;
+            video.loop = false;
+            video.muted = true;
+
+            video.pause();
+            audio.pause();
+            video.currentTime = 0;
+            audio.currentTime = 0;
+
+            setExportProgress(2, '載入影片中...');
+            const isVideoReady = await waitForMediaReady(video, 4000);
+            if (!isVideoReady) {
+                setExportProgress(3, '影片載入較慢，繼續嘗試匯出...');
+            }
+
+            exportBtn.disabled = true;
+            exportBtn.textContent = '匯出中，請稍候...';
+            statusText.textContent = '正在合成影片同音樂...';
+            setExportProgress(4, '準備素材中...');
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 720;
+            canvas.height = video.videoHeight || 1280;
+            const ctx = canvas.getContext('2d');
+
+            const canvasStream = canvas.captureStream(30);
+            const audioContext = new AudioContext();
+            const destination = audioContext.createMediaStreamDestination();
+
+            const exportAudio = new Audio(audio.currentSrc || audio.src);
+            exportAudio.loop = false;
+            exportAudio.volume = 1;
+            exportAudio.preload = 'auto';
+            const isAudioReady = await waitForMediaReady(exportAudio, 3500);
+            if (!isAudioReady) {
+                setExportProgress(6, '音樂載入較慢，匯出時可能有延遲...');
+            }
+
+            const bgMusicSource = audioContext.createMediaElementSource(exportAudio);
+            bgMusicSource.connect(destination);
+
+            const mixedStream = new MediaStream([
+                ...canvasStream.getVideoTracks(),
+                ...destination.stream.getAudioTracks()
+            ]);
+
+            const chunks = [];
+            const recorder = new MediaRecorder(mixedStream, { mimeType });
+            recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    chunks.push(event.data);
+                }
+            };
+
+            const stopped = new Promise((resolve) => {
+                recorder.addEventListener('stop', resolve, { once: true });
+            });
+
+            let rafId;
+            let progressTimer;
+            const drawFrame = () => {
+                if (ctx) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const burnText = subtitleForTime(video.currentTime);
+                    drawSubtitleOnCanvas(ctx, canvas, burnText);
+                }
+                rafId = requestAnimationFrame(drawFrame);
+            };
+
+            try {
+                recorder.start(250);
+                drawFrame();
+                setExportProgress(8, '開始錄製...');
+
+                progressTimer = setInterval(() => {
+                    const duration = Number(video.duration) || 0;
+                    if (duration > 0) {
+                        const raw = (video.currentTime / duration) * 95;
+                        const progress = Math.max(8, Math.min(95, raw));
+                        setExportProgress(progress, '匯出進行中...');
+                    }
+                }, 120);
+
+                await audioContext.resume();
+                await video.play();
+                await exportAudio.play();
+
+                await waitForEnded(video);
+
+                cancelAnimationFrame(rafId);
+                clearInterval(progressTimer);
+                if (recorder.state === 'recording') {
+                    recorder.requestData();
+                }
+                recorder.stop();
+                await stopped;
+                setExportProgress(98, '正在封裝檔案...');
+
+                const blob = new Blob(chunks, { type: mimeType });
+                if (!blob.size) {
+                    throw new Error('empty export blob');
+                }
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `video-with-music.${fileExtension}`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => {
+                    URL.revokeObjectURL(downloadUrl);
+                }, 3000);
+
+                setExportProgress(100, '完成');
+                statusText.textContent = '完成！已下載已加音樂影片。';
+            } catch (error) {
+                console.error(error);
+                alert('匯出失敗，請再試一次。');
+                setExportProgress(0, '匯出失敗');
+                statusText.textContent = '匯出失敗，請再試一次。';
+            } finally {
+                cancelAnimationFrame(rafId);
+                clearInterval(progressTimer);
+                video.pause();
+                audio.pause();
+                video.currentTime = 0;
+                audio.currentTime = 0;
+                video.loop = wasLooping;
+                video.muted = wasMuted;
+                exportBtn.disabled = false;
+                exportBtn.textContent = '匯出已加音樂影片';
+                btnText.textContent = '出發！(播放影片 & 音樂)';
+                playOverlay.style.opacity = '1';
+                isPlaying = false;
+                audioContext.close();
+            }
+        }
+
+        addSubtitleAtCurrentBtn.addEventListener('click', () => {
+            const start = Math.max(0, video.currentTime - 0.3);
+            const end = video.currentTime + 2.2;
+            const text = currentSubtitleText || '請輸入字幕內容';
+            subtitleSegments.push({ start, end, text });
+            normalizeSubtitleSegments();
+            renderSubtitleList();
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+            statusText.textContent = '已新增一段字幕，請喺字幕微調面板修改內容。';
+        });
+
+        clearSubtitlesBtn.addEventListener('click', () => {
+            subtitleSegments = [];
+            currentSubtitleText = '';
+            renderSubtitleList();
+            setSubtitleOverlay('');
+            statusText.textContent = '已清空字幕。';
+        });
+
+        exportSrtBtn.addEventListener('click', () => {
+            normalizeSubtitleSegments();
+            if (subtitleSegments.length === 0) {
+                alert('目前無字幕可匯出。');
+                return;
+            }
+
+            const srt = subtitleSegments
+                .map((segment, index) => `${index + 1}\n${toSrtTime(segment.start)} --> ${toSrtTime(segment.end)}\n${segment.text}`)
+                .join('\n\n');
+
+            const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'subtitles.srt';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            statusText.textContent = '已匯出 subtitles.srt。';
+        });
+
+        importSrtBtn.addEventListener('click', () => {
+            srtFileInput.click();
+        });
+
+        srtFileInput.addEventListener('change', async () => {
+            const file = srtFileInput.files && srtFileInput.files[0];
+            if (!file) {
+                return;
+            }
+
+            const buffer = await file.arrayBuffer();
+            const text = decodeSrtBytes(buffer);
+            const imported = parseSrtContent(text);
+            if (imported.length === 0) {
+                alert('匯入失敗，SRT 內容格式不正確。');
+                srtFileInput.value = '';
+                return;
+            }
+
+            subtitleSegments = imported;
+            normalizeSubtitleSegments();
+            renderSubtitleList();
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+            statusText.textContent = `已匯入 SRT：${file.name}`;
+            srtFileInput.value = '';
+        });
+
+        shiftBackwardBtn.addEventListener('click', () => {
+            const amount = Math.max(0.1, Number(shiftSecondsInput.value) || 0.5);
+            shiftAllSubtitleTime(-amount);
+            normalizeSubtitleSegments();
+            renderSubtitleList();
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+            statusText.textContent = `字幕已整段前移 ${amount.toFixed(1)} 秒。`;
+        });
+
+        shiftForwardBtn.addEventListener('click', () => {
+            const amount = Math.max(0.1, Number(shiftSecondsInput.value) || 0.5);
+            shiftAllSubtitleTime(amount);
+            normalizeSubtitleSegments();
+            renderSubtitleList();
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+            statusText.textContent = `字幕已整段後移 ${amount.toFixed(1)} 秒。`;
+        });
+
+        durationMinusBtn.addEventListener('click', () => {
+            const amount = Math.max(0.1, Number(durationDeltaInput.value) || 0.3);
+            adjustAllSubtitleDuration(-amount);
+            normalizeSubtitleSegments();
+            renderSubtitleList();
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+            statusText.textContent = `全部字幕時長已減少 ${amount.toFixed(1)} 秒。`;
+        });
+
+        durationPlusBtn.addEventListener('click', () => {
+            const amount = Math.max(0.1, Number(durationDeltaInput.value) || 0.3);
+            adjustAllSubtitleDuration(amount);
+            normalizeSubtitleSegments();
+            renderSubtitleList();
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+            statusText.textContent = `全部字幕時長已增加 ${amount.toFixed(1)} 秒。`;
+        });
+
+        subtitleThemeSelect.addEventListener('change', () => {
+            subtitleTheme = subtitleThemeSelect.value;
+            updateSubtitleOverlayStyle();
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+        });
+
+        subtitleModeSelect.addEventListener('change', () => {
+            subtitleMode = subtitleModeSelect.value;
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+        });
+
+        subtitleSizeSelect.addEventListener('change', () => {
+            subtitleFontScale = Number(subtitleSizeSelect.value) || 1;
+            setSubtitleOverlay(subtitleForTime(video.currentTime));
+        });
+
+        generatePostBtn.addEventListener('click', () => {
+            const generated = createShortPostFromDescription(descriptionInput.value);
+            postPreviewText.textContent = generated;
+            statusText.textContent = '已根據 description 生成 Facebook 短簡介。';
+        });
+
+        toggleBtn.addEventListener('click', togglePlay);
+        playOverlay.addEventListener('click', togglePlay);
+        exportBtn.addEventListener('click', exportVideoWithMusic);
+        captionBtn.addEventListener('click', () => {
+            if (isCaptioning) {
+                stopAutoCaption();
+                return;
+            }
+            startAutoCaption();
+        });
+        video.addEventListener('timeupdate', () => {
+            if (isCaptioning) {
+                return;
+            }
+            const text = subtitleForTime(video.currentTime);
+            setSubtitleOverlay(text);
+        });
+        updateSubtitleOverlayStyle();
+        renderSubtitleList();
+        video.muted = true; 
+    </script>
+</body>
+</html>
