@@ -32,14 +32,14 @@ jobs:
 
       - name: Build EXE
         run: |
-          pyinstaller --onefile --name xls_to_xlsx_converter convert_xls_to_xlsx.py
+          pyinstaller --onefile --name xls_to_xlsx_converter video-music/convert_xls_to_xlsx.py
 
       - name: Prepare release ZIP (EXE + README)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path package -Force | Out-Null
           Copy-Item dist/xls_to_xlsx_converter.exe package/
-          Copy-Item README.md package/
+          Copy-Item video-music/README.md package/README.md
           Compress-Archive -Path package/* -DestinationPath dist/xls_to_xlsx_converter_windows.zip -Force
 
       - name: Upload release assets artifact
